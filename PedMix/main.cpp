@@ -35,7 +35,7 @@ static bool fCalcSingleParam = false;
 static void Usage()
 {
     cout << "Usage: ./PedMix <OPTIONS> <file-name>\n";
-	cout << "Example: ./PedMix -g 1 -m 0.5 5 -p parfile testPedMix.inp\n";
+	cout << "Example: ./PedMix -g 1 -p parfile testPedMix.inp\n";
     cout << "Options: \n";
 	cout << "   -g : number of generations to trace back, for example parents is '-g 1'.\n";
         cout << "   -p parfile : input parameter file to PedMix, including phasing error rate, recombination rate, length and BFGS step size.\n";
