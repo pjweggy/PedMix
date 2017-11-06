@@ -1,0 +1,4 @@
+phasing = 0.000001
+recombination = 0.00000001
+length = 10000000
+step = 0.000000001
