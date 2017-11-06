@@ -1,2 +1,3 @@
 # PedMix
-./PedMix -g 1 -m 5 0.5 testPedMix.inp 
+./PedMix -g 1 -p parfile testPedMix.inp 
+For more details, please see PedMix-tutorial.pdf
