@@ -1,5 +1,5 @@
-LBFGS_INC=/home/jip12006/tools/lbfgs/include
-LBFGS_LIB=/home/jip12006/tools/lbfgs/lib
+LBFGS_INC=/Users/pjweggy/Documents/tools/lbfgs/include
+LBFGS_LIB=/Users/pjweggy/Documents/tools/lbfgs/lib
 CC = g++
 #GLPK = glpk-4.34
 #LIBPATH = $(GLPK)/src
@@ -12,7 +12,7 @@ CC = g++
 #LIBPATH = 
 #endif
 
-CFLAGS = -O3 -Wall -fopenmp -I${LBFGS_INC} -L${LBFGS_LIB} -Wl,-rpath,${LBFGS_LIB}
+CFLAGS = -O3 -Wall -I${LBFGS_INC} -L${LBFGS_LIB} -Wl,-rpath,${LBFGS_LIB}
 LIBPATH = 
 
 all: PedMix 

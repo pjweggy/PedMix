@@ -22,7 +22,7 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // Real options now
 
-const char *versionMIG = "**************************************************************************\n            PedMix ver. 1.1.0 (beta), \n           released on May, 2017 \n**************************************************************************\n";
+const char *versionMIG = "**********  PedMix v.2.1.0 (beta)   released on May, 2017 **********\nby Jingwen Pei; contact: jingwen.pei@uconn.edu\n";
 static int fileArgIndex = -1;
 //static int fileArgIndexModel = -1;
 static const char *fileInputFile = NULL;            // file for model
@@ -35,7 +35,7 @@ static bool fCalcSingleParam = false;
 static void Usage()
 {
     cout << "Usage: ./PedMix <OPTIONS> <file-name>\n";
-	cout << "Example: ./PedMix -g 1 -p parfile testPedMix.inp\n";
+	cout << "Example: ./PedMix -g 1 -m 0.5 5 -p parfile testPedMix.inp\n";
     cout << "Options: \n";
 	cout << "   -g : number of generations to trace back, for example parents is '-g 1'.\n";
         cout << "   -p parfile : input parameter file to PedMix, including phasing error rate, recombination rate, length and BFGS step size.\n";
@@ -125,18 +125,15 @@ static bool CheckArguments(int argc, char **argv)
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// testiing
-void TempTest( const vector<vector<PedigreeMixHaplotype> > &listHaps, PopMixingModel &modelPedMix, vector<double> Par )
+// PedMix Estimate main function 
+void PedMixEst( const vector<vector<PedigreeMixHaplotype> > &listHaps, PopMixingModel &modelPedMix, vector<double> Par )
 {
     //
-    //TestCellTreeCostSimple();
-    YW_ASSERT_INFO( fileInputFile != NULL , "Haplotype or model files: one of is not set" );
-    //TestCellTreeInfGenoFile( fileGenoFile );
-//TestLikelihoodDirect();
-//exit(1);
-    //TestLikelihoodForHaps( listHaps, modelPedMix );
+    YW_ASSERT_INFO( fileInputFile != NULL , "Genotype or parameter files: format is invalid!!!!" );
 
+    TestLikelihoodForHaps( listHaps, modelPedMix, mixGenerations, mixRatioInput, Par );
+ 
+/*
     if( fCalcSingleParam == false )
     {
         // try to search for the model
@@ -158,28 +155,30 @@ void TempTest( const vector<vector<PedigreeMixHaplotype> > &listHaps, PopMixingM
         TestLikelihoodForHaps( listHaps, modelPedMix, mixGenerations, mixRatioInput, Par );
 
     }
+*/
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for ms file only
-
-
+// This is the start of the work!!!!
 int main(int argc, char **argv)
 {
-	// info
+	// front-end: get options from user
 	cout << versionMIG << endl;
     if( CheckArguments( argc, argv) == false)
     {
         Usage();
     }
 
-    // read in haplotypes
-    vector<vector<PedigreeMixHaplotype> > listHaplotypes;       // may from multiple loci
+
+    // data: get data from files
+    // Extracting parameter & genotype from input files
+    vector<vector<PedigreeMixHaplotype> > listHaplotypes;       // allow multiple loci: run in parallel
     const int numPops = 2;
     const int numMixingGen = 10;
     const double ratioMix = 0.5;
     PopMixingModel modelPedMix( numPops, numMixingGen, ratioMix );
-    ReadPedMixInputFromFile(fileInputFile, listHaplotypes, modelPedMix);//Dump info: freqA freqB and haplotypes---->modelPedMix
+    ReadPedMixInputFromFile(fileInputFile, listHaplotypes, modelPedMix); // Dump info: freqA freqB and genotypes---->modelPedMix
     vector<double> Par=ReadParFromFile(ParFile);
 /*
     cout<<"Haplotype size "<<listHaplotypes.size()<<endl;
@@ -200,13 +199,13 @@ int main(int argc, char **argv)
     // start timing
     long tstart1 = GetCurrentTimeTick();
 
-    //
+    // start PedMix estimate
 
-    TempTest( listHaplotypes, modelPedMix, Par );
+    PedMixEst( listHaplotypes, modelPedMix, Par );
 
 
     cout << "Elapsed time = " << GetElapseTime( tstart1 ) << " seconds." << endl;
 
-    // for now, do nothing
+    // finish PedMix estimate
     return 0;
 }

@@ -184,6 +184,7 @@ void DumpSubstring( const INTERVAL_SUBSTRING &substr );
 // Numerical utilities
 // ***************************************************************************
 double GetLogSumOfLogs(const vector<double> &listLogs);
+double GetLogSum(const vector<double> &listLogs);
 double GetLogSumOfLogsDirect(const vector<double> &listLogs);
 double GetLogSumOfTwo(double logv1, double logv2);
 double GetSumOfElements(const vector<double> &listVals);
