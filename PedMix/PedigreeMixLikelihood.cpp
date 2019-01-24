@@ -482,9 +482,40 @@ double PedigreeMixLikelihood :: Compute(const PopMixingModel &model, int locus, 
         }
         vecProbsCur.push_back(probInitCombo);
     }
+//********* Init All recom indexAC with prob 0
+   if (locus == 0)
+   {
+    int numAC=GetNumPerfectPedLeaves()+GetNumInternalNodes();
+    int numRec=GetNumInternalNodes();
+    //cout<<numAC<<"      "<<numRec<<endl; 
+    if ( numRec >0 )
+    {
+         for(int j=0;j<vecProbsCur.size()/2; ++j)
+         {
+              for(int nb=0;nb<numRec;nb++)
+              {
+                   int mask = (0x1 << nb );
+                   if ( (j & mask ) != 0  && vecProbsCur[j] != log(10e-50))
+                   {
+                         vecProbsCur[j]=log(10e-50);
+                         //cout<<"index "<<j<<" now becomes "<<vecProbsCur[j]<<endl;
+                   }
+                   mask = (0x1 << (nb+numAC) );
+                   if ( (j & mask ) != 0  && vecProbsCur[j] != log(10e-50))
+                   {
+                         vecProbsCur[j]=log(10e-50);
+                         //cout<<"index "<<j<<" now becomes "<<vecProbsCur[j]<<endl;
+                   }
+              }
+         }
+    }
+    }
+//*********
+//********* Init All switch indexAC with prob 0
     for(int j=0;j<vecProbsCur.size()/2; ++j)
     {
-        vecProbsCur[j+vecProbsCur.size()/2]=vecProbsCur[j];
+        //vecProbsCur[j+vecProbsCur.size()/2]=vecProbsCur[j];
+        vecProbsCur[j+vecProbsCur.size()/2]=log(10e-50);
     }
 
     //printvec(vecProbsCur);
@@ -527,7 +558,6 @@ double PedigreeMixLikelihood :: Compute(const PopMixingModel &model, int locus, 
 //cout << "At site " << i << ": current prob list is ";
 //DumpDoubleVec(vecProbsCur);
     }
-
     // this is the final prob: add them up
     if( fLogMode == true )
     {
@@ -1035,7 +1065,7 @@ void PedigreeMixLikelihood :: CalcProbsFromPrevRecur(const vector<double> &vecPr
     {
      	recfrag = uni;
     }
-    double reclength = recfrag/uni;
+    double reclength = recfrag*ll;
     CalcProbsFromPrevRecurRoutine( true, GetLengthIndexAC()-1, vecProbsPrev, vecProbsCur, probNoRec, PP, reclength, probswitch);
 
 
@@ -1359,7 +1389,9 @@ void PedigreeMixLikelihood :: SetupRecParams( bool fForward, int bitpos, vector<
         {
         	//int pos=2*(len_PP/2-1);
         	int pos=len_PP/2+2*(numAC-bitpos-1);
-                //cout<<"Right Ancestral setting bit parent "<<pos<<endl;
+                //cout<<"Now bit is "<<bitpos<<"Right Ancestral setting bit parent "<<pos<<endl;
+//                double Ma=PP[pos+1]/(PP[pos]+PP[pos+1]);
+//                double Mb=PP[pos]/(PP[pos]+PP[pos+1]);
         	if (recfrag*PP[pos]>1)
         	{
         		vecParams[0].push_back(0.0 );
@@ -1367,8 +1399,11 @@ void PedigreeMixLikelihood :: SetupRecParams( bool fForward, int bitpos, vector<
         	}
         	else
         	{
-        		vecParams[0].push_back(1.0-recfrag*PP[pos] );
-        		vecParams[1].push_back(recfrag*PP[pos]);
+//        		vecParams[0].push_back((1.0-recfrag*PP[pos])+(1.0-probNoRecSingleGen)*(Ma-(1.0-recfrag*PP[pos])) );
+//        		vecParams[1].push_back(recfrag*PP[pos]+(1.0-probNoRecSingleGen)*(Mb-recfrag*PP[pos]));
+                        vecParams[0].push_back(1.0-recfrag*PP[pos] );
+                        vecParams[1].push_back(recfrag*PP[pos]);
+
         	}
         	if (recfrag*PP[pos+1]>1)
         	{
@@ -1377,8 +1412,10 @@ void PedigreeMixLikelihood :: SetupRecParams( bool fForward, int bitpos, vector<
         	}
             else
             {
-        		vecParams[0].push_back(recfrag*PP[pos+1]);
-        		vecParams[1].push_back(1.0-recfrag*PP[pos+1]);
+//        		vecParams[0].push_back(recfrag*PP[pos+1]+(1.0-probNoRecSingleGen)*(Ma-recfrag*PP[pos+1]));
+//        		vecParams[1].push_back((1.0-recfrag*PP[pos+1])+(1.0-probNoRecSingleGen)*(Mb-(1.0-recfrag*PP[pos+1])));
+                        vecParams[0].push_back(recfrag*PP[pos+1]);
+                        vecParams[1].push_back(1.0-recfrag*PP[pos+1]);
         	}
         }
 /*
@@ -1411,7 +1448,9 @@ void PedigreeMixLikelihood :: SetupRecParams( bool fForward, int bitpos, vector<
         {
         	//int pos=2*(len_PP/2-3);
         	int pos=2*(2*numAC-bitpos-1);
-                //cout<<"Left Ancestral setting bit parent "<<pos<<endl;
+                //cout<<"Now bit is "<<bitpos<<" Left Ancestral setting bit parent "<<pos<<endl;
+//                double Ma=PP[pos+1]/(PP[pos]+PP[pos+1]);
+//                double Mb=PP[pos]/(PP[pos]+PP[pos+1]);
         	if (recfrag*PP[pos]>1)
         	{
         		vecParams[0].push_back(0.0 );
@@ -1419,6 +1458,8 @@ void PedigreeMixLikelihood :: SetupRecParams( bool fForward, int bitpos, vector<
         	}
         	else
         	{
+//                        vecParams[0].push_back((1.0-recfrag*PP[pos])+(1.0-probNoRecSingleGen)*(Ma-(1.0-recfrag*PP[pos])) );
+//                        vecParams[1].push_back(recfrag*PP[pos]+(1.0-probNoRecSingleGen)*(Mb-recfrag*PP[pos]));
         		vecParams[0].push_back(1.0-recfrag*PP[pos] );
         		vecParams[1].push_back(recfrag*PP[pos]);
         	}
@@ -1429,6 +1470,8 @@ void PedigreeMixLikelihood :: SetupRecParams( bool fForward, int bitpos, vector<
         	}
             else
             {
+//                        vecParams[0].push_back(recfrag*PP[pos+1]+(1.0-probNoRecSingleGen)*(Ma-recfrag*PP[pos+1]));
+//                        vecParams[1].push_back((1.0-recfrag*PP[pos+1])+(1.0-probNoRecSingleGen)*(Mb-(1.0-recfrag*PP[pos+1])));
         		vecParams[0].push_back(recfrag*PP[pos+1]);
         		vecParams[1].push_back(1.0-recfrag*PP[pos+1]);
         	}

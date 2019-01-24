@@ -1,0 +1,292 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+		]
+	},
+	"buffers":
+	[
+		{
+			"contents": "//\n//  PedMixTest.cpp\n//\n//\n//  Created by Yufeng Wu on 12/5/14.\n//\n//\n\n#include \"PedMixTest.h\"\n#include <cmath>\n#include <iomanip>\n#include \"Utils4.h\"\n#include <vector>\n\nusing namespace std;\n\nstruct SValue{\n\tvector< vector<PedigreeMixHaplotype> > listHaps;\n\tPopMixingModel* modelPedMix;\n\tconst PedigreeMixLikelihood* pedMixCalc;\n\tint geno_index;\n\tdouble DEF_BFGS_STEP_SIZE;\n\tdouble pho;\n\tint ll;\n\tdouble probswitch;\n};\n\n\nstatic lbfgsfloatval_t evaluate(void *instance,const lbfgsfloatval_t *x,lbfgsfloatval_t *g,const int n,const lbfgsfloatval_t step)\n{\n\tSValue *sa;\n\tsa=(SValue *)instance;\n\t//cout<<\"haplotype size is \"<<sa->listHaps.size()<<endl;\n\t//cout<<\"pedMixCalc :\"<<sa->pedMixCalc->GetMaxNumPedigreeGen()<<endl;\n\t//cout<<\"model\"<<sa->modelPedMix->GetNumSites(0)<<endl;\n\n\t//calculate fx\n\tlbfgsfloatval_t fx;\n\tdouble phopara=sa->pho*sa->ll;//**********************param to change\n\t//int ll=sa->ll;//**********************param to change\n\t//double probswitch=sa->probswitch;\n\t//cout<<\"phopara \"<<phopara<<endl;\n\t//cout<<ll;\n\tint hap_index1=2*sa->geno_index;\n\tint hap_index2=2*sa->geno_index+1;\n\tPopMixingModel mp=*(sa->modelPedMix);\n\tvector<double> llh(sa->listHaps.size());\n\n\t// **** project PP vector\n    vector<double> PP;\n\tfor (int i=0;i<n;i++)\n\t{\n\t\tPP.push_back(exp(x[i])/(1+exp(x[i])));\n\t}\n\n\tcout<<\"PP vector----[\";\n\tfor (int i=0;i<n;i++)\n\t{\n\t\tcout<<PP[i]<<\" \";\n\t}\n\tcout<<\"]\"<<endl;\n\n    // **** start computing probability for multiple genotypes\n#pragma omp parallel num_threads(22)\n    {\n#pragma omp for ordered schedule(dynamic)\n\tfor (int i=0;i<(int)sa->listHaps.size();i++) //enumerate all the locus\n\t{\n                //long tstart2 = GetCurrentTimeTick();\n\t\tllh[i]=sa->pedMixCalc->Compute( mp, i, sa->listHaps[i][hap_index1], sa->listHaps[i][hap_index2], PP,phopara,sa->ll,sa->probswitch );\n                //cout<<\"haplotype \"<<(i+1)<<\" takes \"<<GetElapseTime( tstart2 )<<\" seconds\"<<endl;\n\t}\n    }\n/*\n        cout<<\"22 chr likelihood are:[ \";\n        for (int i=0;i<22;i++)\n        {\n                cout<<llh[i]<<\" \";\n        }\n        cout<<\"]\"<<endl;\n*/\n\tfx=-GetLogSum( llh );\n        //fx=-GetLogSumOfLogs(llh);\n\tcout<<\"computed likelihood is : \"<<fx<<endl;\n\n\n\t// **** start computing gradient \n    vector<double> PP_tmp;\n\t//calculate gradient\n    for(int i=0; i<n; ++i)\n    {\n        double deltaInc = GetDeltaIncBFGS( x[i], sa->DEF_BFGS_STEP_SIZE );\n        //cout<<\"increase of x[\"<<i<<\"] is:\"<<deltaInc<<endl;\n        PP_tmp.clear();\n        PP_tmp=PP;\n        PP_tmp[i]=exp(x[i]+deltaInc)/(1+exp(x[i]+deltaInc));\n        //print new PP\n/*\n        cout<<\"test new PP is :[\";\n        for (int k=0;k<n;k++)\n        {\n        \tcout<<PP_tmp[k]<<\" \";\n        }\n        cout<<\"]\"<<endl;\n*/\n        vector<double> llh2(sa->listHaps.size());\n#pragma omp parallel num_threads(22)\n        {\n#pragma omp for ordered schedule(dynamic)\n        for (int j=0;j<(int)sa->listHaps.size();j++)\n        {\n                long tstart2 = GetCurrentTimeTick();\n        \tllh2[j]=sa->pedMixCalc->Compute( mp, j, sa->listHaps[j][hap_index1], sa->listHaps[j][hap_index2], PP_tmp,phopara,sa->ll,sa->probswitch );\n                //cout<<\"haplotype \"<<(j+1)<<\" takes \"<<GetElapseTime( tstart2 )<<\" seconds\"<<endl;\n        }\n        }\n        double fx2=-GetLogSum( llh2 );\n        //double fx2=-GetLogSumOfLogs(llh2);\n        cout<<\"the new likelihood is :\"<<fx2<<endl;\n        double gradientVal = ( fx2-fx )/deltaInc;\n        g[i] = gradientVal;\n    }\n\treturn fx;\n}\n/*\nint test1(void* par)\n{\n\tSValue* sa=(SValue*)par;\n\tfor(int i=0;i<sa->listHaps.size();i++)\n\t{\n\t\tcout<<sa->listHaps[i].size()<<endl;\n\t\tfor(int j=0;j<sa->listHaps[i].size();j++)\n\t\t{\n\t\t\tPedigreeMixHaplotype pl=sa->listHaps[i][j];\n\t\t\tcout<<pl.Dump()<<\" \";\n\t\t}\n\t\tcout<<endl;\n\t}\n\tcout<<sa->listHaps.size()<<endl;\n\n\tvector<int> a;\n\ta.push_back(1);\n\tvector<int> b;\n\tb=a;\n\n}\n*/\n\n//\nint TestLikelihoodForHaps( const vector<vector<PedigreeMixHaplotype> > &listHaps, PopMixingModel &modelPedMix, int numMixGens, double mixratio, vector<double> Par  )\n{\n\n\tPedigreeMixLikelihood pedMixCalc;\n    modelPedMix.SetMixRatio( mixratio );\n\n    if( pedMixCalc.GetMaxNumPedigreeGen() < GetNumofPerfectPedGens()  )\n    {\n        cout << \"The number of generations in pedigree is too large. Stop.\" << endl;\n        exit(1);\n    }\n\n    modelPedMix.SetNumMixGens( numMixGens );\n    //pedMixCalc.UseRecursive(true);\n    //bool fRecursive = false;\n    bool fRecursive = true;\n    pedMixCalc.UseRecursive(fRecursive);\n    bool fLogMode = true;\n    pedMixCalc.SetLogMode( fLogMode );\n    //cout << \"The model to be used: \";\n    //modelPedMix.Dump();\n\n    for (int geno_index=0;geno_index<listHaps[0].size()/2;geno_index++)\n    {\n    //start BFGS main function\n    int i, ret = 0;\n    int num_anc=pow(2,GetNumofPerfectPedGens());\n    int N=2*num_anc;\n    lbfgsfloatval_t fx;\n    lbfgsfloatval_t *x = lbfgs_malloc(N);\n    lbfgs_parameter_t param;\n    if (x == NULL) {\n        printf(\"ERROR: Failed to allocate a memory block for variables.\\n\");\n        return 1;\n    }\n    //initialize PP variables\n    double basev=10/Par[2];\n    //cout<<\"base value is\"<<basev<<endl;\n    //**********************\n    for (i=0;i<N;++i)\n    {\n    \tx[i]=log((i*0.01+1)*basev/(1-(i*0.01+1)*basev));     //*********************param to change\n    }\n    //**********************\n    //x[0]=log(0.00000199);\n    //x[1]=log(0.00000207);\n    //x[2]=log(0.00000142);\n    //x[3]=log(0.00000181);\n    //initialize parameters for L-BFGS optimization\n    lbfgs_parameter_init(&param);\n    //start L-BFGS optimization progress\n\n    //pass data****************************************************************\n    SValue* sa=new SValue;\n    sa->listHaps=listHaps;\n    sa->modelPedMix=&modelPedMix;\n    sa->pedMixCalc= &pedMixCalc;\n    sa->geno_index=geno_index;\n    sa->probswitch=Par[0];\n    sa->pho=Par[1];\n    sa->ll=(int)Par[2];\n    sa->DEF_BFGS_STEP_SIZE=Par[3];\n    ret = lbfgs(N, x, &fx, evaluate, progress, (void *)sa, &param);\n    //pass data****************************************************************\n\n    //Report result\n    cout<<\"--*important info*--the maximum likelihood is  [\";\n    cout<<setprecision(10)<<fx<<\"]\"<<endl;\n    //####### remap PP to [0, 1]\n    vector<double> PP;\n    cout<<\"--*important info*--PP vector is   [\";\n    for (int idx=0;idx<N;idx++)\n    {\n    \tPP.push_back(exp(x[idx])/(1+exp(x[idx])));\n    \tcout<<PP[idx]<<\" \";\n    }\n    cout<<\"]\"<<endl;\n    double ratiov=0.0;\n    cout<<\"--*important info*--the admixture proportions of ancestral population A is  [\";\n    for (int anc=0;anc<num_anc;anc++)\n    {\n    \tratiov=100*PP[2*anc+1]/(PP[2*anc]+PP[2*anc+1]);\n    \tcout<<ratiov<<\"%  \";\n    }\n    cout<<\"]\"<<endl;\n    //clear L-BFGS\n    lbfgs_free(x);\n    }\n    return 0;\n\n}\n\nstatic double GetDeltaIncBFGS(double valCurr, double DEF_BFGS_STEP_SIZE)\n{\n    //cout<<\"step size is \"<<DEF_BFGS_STEP_SIZE<<endl;\n    //const double DEF_BFGS_STEP_SIZE = 0.00000001;    //*********************************param to change\n    double trueval=exp(valCurr)/(1+exp(valCurr));\n    //return log((trueval+DEF_BFGS_STEP_SIZE)/(1-trueval-DEF_BFGS_STEP_SIZE)) - valCurr;\n    DEF_BFGS_STEP_SIZE=trueval*0.0001;\n    return log((trueval+DEF_BFGS_STEP_SIZE)/(1-trueval-DEF_BFGS_STEP_SIZE)) - valCurr;\n}\n\nstatic int progress(\n    void *instance,\n    const lbfgsfloatval_t *x,\n    const lbfgsfloatval_t *g,\n    const lbfgsfloatval_t fx,\n    const lbfgsfloatval_t xnorm,\n    const lbfgsfloatval_t gnorm,\n    const lbfgsfloatval_t step,\n    int n,\n    int k,\n    int ls\n    )\n{\n    printf(\"Iteration %d:\\n\", k);\n    printf(\"  fx = %f, x[0] = %f, x[1] = %f\\n\", fx, x[0], x[1]);\n    printf(\"  xnorm = %f, gnorm = %f, step = %f\\n\", xnorm, gnorm, step);\n    printf(\"\\n\");\n    return 0;\n}\n\n\n",
+			"file": "PedMixTest.cpp",
+			"file_size": 7566,
+			"file_write_time": 131870391297007692,
+			"settings":
+			{
+				"buffer_size": 7698,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "PedigreeMixLikelihood.cpp",
+			"settings":
+			{
+				"buffer_size": 59881,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "main.cpp",
+			"settings":
+			{
+				"buffer_size": 6720,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/Users/jpei/Documents/code/HMM/code"
+	],
+	"file_history":
+	[
+		"/Users/jpei/Documents/code/HMM/code/PedigreeMixLikelihoodGeno.cpp",
+		"/Users/jpei/Documents/code/HMM/code/PedMixTest.h",
+		"/Users/jpei/Documents/code/HMM/code/PedigreeMixIO.cpp"
+	],
+	"find":
+	{
+		"height": 39.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"backwards"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "PedMixTest.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7698,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2218,
+								2218
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 3275.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "PedigreeMixLikelihood.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 59881,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								20368,
+								20368
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 12070.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "main.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6720,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								452,
+								599
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 456.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 26.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "PedMix.sublime-project",
+	"replace":
+	{
+		"height": 48.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 276.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

@@ -859,6 +859,16 @@ double GetLogSumOfLogs(const vector<double> &listLogs)
 	return res;
 }
 
+double GetLogSum(const vector<double> &listLogs)
+{
+       double lsum = 0.0;
+       for(int i;i<listLogs.size();i++)
+       {
+                lsum += listLogs[i];
+       }
+       return lsum;
+}
+
 double GetLogSumOfLogsDirect(const vector<double> &listLogs)
 {
 	// simply just direct sum over
