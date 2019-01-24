@@ -12,7 +12,7 @@ CC = g++
 #LIBPATH = 
 #endif
 
-CFLAGS = -O3 -Wall -I${LBFGS_INC} -L${LBFGS_LIB} -Wl,-rpath,${LBFGS_LIB}
+CFLAGS = -O3 -Wall -fopenmp -I${LBFGS_INC} -L${LBFGS_LIB} -Wl,-rpath,${LBFGS_LIB}
 LIBPATH = 
 
 all: PedMix 
